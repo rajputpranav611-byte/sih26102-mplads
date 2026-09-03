@@ -1,0 +1,36 @@
+# --- Python / ML (Person B) ---
+venv/
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+*.egg-info/
+.pytest_cache/
+
+# Model files (comment these out if you WANT to commit trained .pkl files for convenience)
+# ml/models/*.pkl
+
+# Large/generated data (comment out if you want to commit processed data too)
+# ml/data/processed/*.csv
+
+# --- Node / Frontend (Person C) ---
+node_modules/
+.next/
+dist/
+build/
+.env.local
+
+# --- Backend (Person A) ---
+*.log
+.env
+
+# --- General ---
+.env
+.DS_Store
+Thumbs.db
+*.swp
+
+# --- IDE ---
+.vscode/*
+!.vscode/extensions.json
+.idea/

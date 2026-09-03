@@ -1,0 +1,8 @@
+pandas
+numpy
+scikit-learn
+xgboost
+faker
+networkx
+joblib
+matplotlib
