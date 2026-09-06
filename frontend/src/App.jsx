@@ -3,7 +3,7 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, Line
 import { Activity, AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, BarChart3, Check, ChevronDown, ChevronRight, CircleHelp, Download, FileText, Filter, Flag, Grid2X2, Info, LayoutDashboard, List, Map, MapPin, Menu, MessageSquare, Minus, Navigation, PieChart as PieIcon, Search, Send, ShieldAlert, SlidersHorizontal, TrendingUp, Users, X } from 'lucide-react'
 import { MPDetail, StateWorksDetail } from './detailViews.jsx'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 const NAV = [['overview', 'Overview', LayoutDashboard], ['works', 'Find Works', Search], ['states', 'Browse States', Map], ['mps', 'Browse MPs', Users], ['compare', 'Compare', BarChart3], ['feedback', 'Feedback', MessageSquare], ['test', 'Test the Model', SlidersHorizontal]]
 const COLORS = { navy: '#1F3A5F', terracotta: '#C1652F', green: '#3E7C59', amber: '#C98A1A', red: '#A6432E', gray: '#A9AAA6' }
 const money = (value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', notation: value > 9999999 ? 'compact' : 'standard', maximumFractionDigits: 1 }).format(value || 0)
