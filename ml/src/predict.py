@@ -212,6 +212,15 @@ def predict(work_data: dict) -> dict:
     ):
         flags.append("incomplete_reporting")
 
+    severe_delay = (
+        days_since_sanction is not None
+        and days_since_sanction > 500
+        and pd.notna(completion_percent)
+        and completion_percent < 20
+    )
+    if severe_delay or len(flags) >= 3:
+        risk_score = max(risk_score, 0.6)
+
     reasons: list[str] = []
     if "cost_overrun" in flags:
         reasons.append(f"expenditure ratio {expenditure_ratio:.2f} is above the expected operating range")
@@ -242,6 +251,85 @@ def predict(work_data: dict) -> dict:
         "explanation": explanation,
     }
     return result
+
+
+def predict_batch(work_data: list[dict]) -> list[dict]:
+    """Score records in one feature-engineering pass and two model calls."""
+    if not work_data:
+        return []
+
+    normalized = [_normalize_record(record) for record in work_data]
+    frame = engineer_features(pd.DataFrame(normalized))
+    for column in MODEL_FEATURE_COLUMNS:
+        if column not in frame.columns:
+            frame[column] = 0
+    features = frame[MODEL_FEATURE_COLUMNS].fillna(0)
+
+    isolation_scores = IF_MODEL.decision_function(features)
+    if IF_SCORE_MAX - IF_SCORE_MIN > 0:
+        normalized_iforest = (IF_SCORE_MAX - isolation_scores) / (IF_SCORE_MAX - IF_SCORE_MIN + 1e-9)
+    else:
+        normalized_iforest = pd.Series(0.5, index=frame.index)
+    normalized_iforest = pd.Series(normalized_iforest, index=frame.index).clip(0.0, 1.0)
+    xgb_probabilities = XGB_MODEL.predict_proba(features)[:, 1]
+
+    sanctioned = pd.to_numeric(frame.get("sanctioned_amount"), errors="coerce")
+    expenditure = pd.to_numeric(frame.get("expenditure_amount"), errors="coerce")
+    completion = pd.to_numeric(frame.get("completion_percent"), errors="coerce")
+    recommended = pd.to_datetime(frame.get("recommended_date"), errors="coerce")
+    sanctioned_dates = pd.to_datetime(frame.get("sanction_date"), errors="coerce")
+    days_since_sanction = (pd.Timestamp.today().normalize() - sanctioned_dates).dt.days
+    sanction_gap = (sanctioned_dates - recommended).dt.days
+    expenditure_ratio = (expenditure / sanctioned).replace([float("inf"), -float("inf")], pd.NA).fillna(0)
+
+    risk_scores = pd.Series(0.7 * xgb_probabilities + 0.3 * normalized_iforest, index=frame.index)
+    duplicate_flags = [_evaluate_duplicate_flags(record) for record in normalized]
+    duplicate_vendor = pd.Series([item[0] for item in duplicate_flags], index=frame.index)
+    duplicate_beneficiary = pd.Series([item[1] for item in duplicate_flags], index=frame.index)
+    risk_scores = risk_scores.where(~duplicate_vendor, risk_scores.clip(lower=0.55))
+    risk_scores = risk_scores.where(~duplicate_beneficiary, risk_scores.clip(lower=0.60)).clip(0.0, 1.0)
+
+    results = []
+    for index, record in enumerate(normalized):
+        flags = []
+        if expenditure_ratio.iloc[index] > 1.10:
+            flags.append("cost_overrun")
+        if pd.notna(sanction_gap.iloc[index]) and sanction_gap.iloc[index] > 45:
+            flags.append("sanction_delay")
+        if pd.notna(days_since_sanction.iloc[index]) and days_since_sanction.iloc[index] > 180 and pd.notna(completion.iloc[index]) and completion.iloc[index] < 100:
+            flags.append("delayed_completion")
+        if duplicate_vendor.iloc[index]:
+            flags.append("duplicate_vendor")
+        if duplicate_beneficiary.iloc[index]:
+            flags.append("duplicate_beneficiary")
+        if expenditure_ratio.iloc[index] > 1.25:
+            flags.append("inflated_billing")
+        if pd.notna(completion.iloc[index]) and completion.iloc[index] < 100 and ((pd.notna(days_since_sanction.iloc[index]) and days_since_sanction.iloc[index] > 365) or (pd.notna(sanction_gap.iloc[index]) and sanction_gap.iloc[index] > 60)):
+            flags.append("incomplete_reporting")
+
+        severe_delay = pd.notna(days_since_sanction.iloc[index]) and days_since_sanction.iloc[index] > 500 and pd.notna(completion.iloc[index]) and completion.iloc[index] < 20
+        if severe_delay or len(flags) >= 3:
+            risk_scores.iloc[index] = max(risk_scores.iloc[index], 0.6)
+
+        reasons = []
+        if "cost_overrun" in flags:
+            reasons.append(f"expenditure ratio {expenditure_ratio.iloc[index]:.2f} is above the expected operating range")
+        if "sanction_delay" in flags:
+            reasons.append(f"sanction happened {int(sanction_gap.iloc[index])} days after recommendation")
+        if "delayed_completion" in flags:
+            reasons.append(f"completion is only {completion.iloc[index]}% after {int(days_since_sanction.iloc[index])} days since sanction")
+        if "duplicate_vendor" in flags:
+            reasons.append("vendor matches a known duplicate vendor cluster")
+        if "duplicate_beneficiary" in flags:
+            reasons.append("beneficiary appears in a repeated beneficiary cluster")
+        if "inflated_billing" in flags:
+            reasons.append("expenditure is materially above the sanctioned value")
+        if "incomplete_reporting" in flags:
+            reasons.append("project status remains incomplete well beyond expected reporting timelines")
+        explanation = "No major anomaly signals were detected; cost, timing, and duplicate checks remain within expected ranges." if not reasons else "; ".join(reasons) + "."
+        score = round(float(risk_scores.iloc[index]), 4)
+        results.append({"work_id": str(record.get("work_id", "UNKNOWN")), "risk_score": score, "is_anomaly": score >= 0.5, "flags": flags, "explanation": explanation})
+    return results
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ def list_works(
     state: Optional[str] = None,
     district: Optional[str] = None,
     status_: Optional[WorkStatus] = Query(default=None, alias="status"),
+    house: Optional[str] = None,
     category: Optional[WorkCategory] = None,
     mp_name: Optional[str] = None,
     role: Role = Depends(get_current_role),
@@ -29,7 +30,7 @@ def list_works(
     Filtering is currently by query params rather than enforced by
     identity, since there's no auth/user table yet.
     """
-    works = mock_data.get_all_works()
+    works = mock_data.get_all_works(house=house)
 
 
     if state:
