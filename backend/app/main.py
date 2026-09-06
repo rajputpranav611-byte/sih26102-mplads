@@ -12,7 +12,11 @@ app = FastAPI(
 # Wide open for hackathon dev; tighten before any real deployment.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost",
+        "http://localhost:5173",
+        "https://sih26102-mplads-bice.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
