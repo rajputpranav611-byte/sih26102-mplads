@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #1F3A5F;
+  --color-terracotta: #C1652F;
+  --color-forest: #3E7C59;
+  --color-amber: #C98A1A;
+  --color-brick: #A6432E;
+  --color-paper: #F7F5F0;
+  --color-divider: #F0F0EE;
+  --font-serif: Georgia, serif;
+  --font-sans: 'DM Sans', Inter, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #F7F5F0; color: #243144; font-family: var(--font-sans); }
+button, input, select { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+table { border-collapse: collapse; }
